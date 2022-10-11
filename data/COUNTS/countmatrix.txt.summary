@@ -1,0 +1,13 @@
+Status	mapped/FemaleBr3.sorted.bam	mapped/MaleBr2.sorted.bam	mapped/MaleFB1.sorted.bam	mapped/FemaleBr1.sorted.bam	mapped/MaleBr3.sorted.bam	mapped/MaleFB2.sorted.bam	mapped/MaleBr1.sorted.bam	mapped/FemaleFB3.sorted.bam	mapped/FemaleBr2.sorted.bam	mapped/FemaleFB1.sorted.bam	mapped/MaleFB3.sorted.bam	mapped/FemaleFB2.sorted.bam
+Assigned	118321416	109981104	92298304	128537722	96077840	93351029	97935516	92625725	103349260	81716061	82130351	101676277
+Unassigned_Unmapped	10659529	10514623	10647372	10457164	9192542	10018576	9464803	9656512	9470267	8901568	8362127	10127252
+Unassigned_MappingQuality	0	0	0	0	0	0	0	0	0	0	0	0
+Unassigned_Chimera	0	0	0	0	0	0	0	0	0	0	0	0
+Unassigned_FragmentLength	0	0	0	0	0	0	0	0	0	0	0	0
+Unassigned_Duplicate	0	0	0	0	0	0	0	0	0	0	0	0
+Unassigned_MultiMapping	16281287	15551256	17194989	14692591	33477121	14819778	9078911	10526107	11238503	15121413	20068020	21456064
+Unassigned_Secondary	0	0	0	0	0	0	0	0	0	0	0	0
+Unassigned_Nonjunction	0	0	0	0	0	0	0	0	0	0	0	0
+Unassigned_NoFeatures	1488052	1478265	381021	1541817	1439408	206567	1037906	166438	1405060	170271	236728	348679
+Unassigned_Overlapping_Length	0	0	0	0	0	0	0	0	0	0	0	0
+Unassigned_Ambiguity	5126298	4774801	11169996	5476309	4692062	12089282	4174682	10878042	4464353	9937035	10811329	12438689

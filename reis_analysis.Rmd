@@ -1,0 +1,249 @@
+---
+title: "reis"
+author: "tyler matheny"
+date: "9/1/2022"
+output: html_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+library(dplyr)
+library(DESeq2)
+library(stringr)
+library(RColorBrewer)
+library(pheatmap)
+library(ggplot2)
+library(plotly)
+library(gapminder)
+library(gprofiler2)
+library(heatmaply)
+library(tidyverse)
+```
+
+
+```{r, echo=FALSE, message=FALSE, warning=FALSE}
+setwd('~/projects/reis/github')
+
+countdata <- read.table("data/COUNTS/countmatrix.txt", header =TRUE, row.names="Geneid")
+countdata <- countdata[ ,6:ncol(countdata)]
+colnames(countdata) <- gsub(".sorted.bam$", "", colnames(countdata))
+colnames(countdata) <- gsub("mapped.", "", colnames(countdata))
+countdata <- countdata[,order(colnames(countdata))]
+countdata <- as.matrix(countdata)
+col_names <- colnames(countdata)
+comparisons <- c('FemaleBr', 'FemaleFB', 'MaleBr','MaleFB')
+
+coldata = read.csv('data/sample_table.txt', sep='\t')
+
+dds <- DESeqDataSetFromMatrix(countData = countdata,
+                              colData = coldata,
+                              design= ~condition)
+dds <- DESeq(dds)
+```
+I begin the analysis by reading in the data with DESeq and running DESeq() on the data. After which, I am left with a DESeq object for downstream analysis.   First, I will run PCA by running VarianceStabilizingTransformation and PCA on the top 500 genes.  The most striking difference lies along PC1 (x-axis) and seems to be due to FB vs Br.  There also seem to be differences between Male and Female FB samples, while Female and Male BR samples are more similar.
+
+```{r,echo=FALSE,message=FALSE}
+vsd <- vst(dds, blind=FALSE)
+plotPCA(vsd, intgroup="condition")
+
+```
+
+Next I will run a culstered heatmap of sample distances to determine the similarity between samples.  Dark blue colors indicate samples that are more similar, while lighter blue colors indicate samples that are more dissimilar.
+
+
+
+
+```{r,echo=FALSE,message=FALSE}
+
+sampleDists <- dist(t(assay(vsd)))
+sampleDistMatrix <- as.matrix(sampleDists)
+rownames(sampleDistMatrix) <- paste(vsd$condition, vsd$type, sep="-")
+colnames(sampleDistMatrix) <- NULL
+colors <- colorRampPalette( rev(brewer.pal(9, "Blues")) )(255)
+pheatmap(sampleDistMatrix,
+         clustering_distance_rows=sampleDists,
+         clustering_distance_cols=sampleDists,
+         col=colors)
+
+```
+
+### MaleFB vs FemaleFB
+Lets begin to dig into the comparisons.  First we will look at MaleFB vs. FemaleFB.
+
+
+```{r,echo=FALSE,message=FALSE}
+res <- results(dds, contrast=c("condition","MaleFB","FemaleFB"))
+res <- as.data.frame(res)
+res <- cbind(gene = rownames(res), res)
+
+
+p <- res %>%
+  mutate(log_counts = log(baseMean)) %>%
+  ggplot( aes(x = log_counts, y = log2FoldChange, color = padj, key = gene)) +
+  geom_point() +
+  ylim(-4, 4)
+
+
+ggplotly(p)
+
+```
+
+__Gene Ontology__
+Next, we will perform gene ontology/pathway analysis for genes with higher expression in MaleFB relative to FemaleFB
+
+
+```{r,echo=FALSE,message=FALSE}
+upreg <- res %>% filter(log2FoldChange > 0 & padj < .01)  %>% rownames()
+gostres_up <- gost(query = upreg, organism = "dmelanogaster", evcodes=TRUE)
+
+```
+
+```{r,echo=FALSE,message=FALSE}
+gostres_up$result$rank = 1:nrow(gostres_up$result)
+plot_ <- gostres_up$result %>% 
+  ggplot(aes(x = rank, y = -log10(p_value), color=source, size = -log2(p_value), key = term_name )) + 
+           geom_point(aes(text=c(intersection)))
+
+ggplotly(plot_)
+```
+```{r,echo=FALSE,message=FALSE}
+df = filter(gostres_up$result, source == 'KEGG')
+df = apply(df,2,as.character)
+write.csv(df, 'data/KEGGmale.csv')
+```
+
+Finally, we will perform gene ontology/pathway analysis for genes with higher expression in FemaleFB relative to MaleFB
+
+
+```{r,echo=FALSE,message=FALSE}
+downreg <- res %>% filter(log2FoldChange < 0 & padj < .01)  %>% rownames()
+gostres_down <- gost(query = downreg, organism = "dmelanogaster", evcodes=TRUE)
+
+```
+
+```{r,echo=FALSE,message=FALSE}
+gostres_down$result$rank = 1:nrow(gostres_down$result)
+plot_ <- gostres_down$result %>% 
+  ggplot(aes(x = rank, y = -log10(p_value), color=source, size = -log2(p_value), key = term_name)) + 
+           geom_point(aes(text=intersection))
+
+ggplotly(plot_)
+```
+
+
+```{r,echo=FALSE,message=FALSE}
+df = filter(gostres_down$result, source == 'KEGG')
+df = apply(df,2,as.character)
+write.csv(df, 'data/KEGGfemale.csv')
+```
+
+
+
+
+
+#Heatmap of top 100
+
+
+```{r, echo =FALSE,message=FALSE}
+down = res %>% filter(log2FoldChange < 0 & padj < .01) %>% arrange(padj) %>%  rownames()
+down = down[1:100]
+```
+
+```{r, echo =FALSE,message=FALSE}
+up = res %>% filter(log2FoldChange > 0 & padj < .01) %>% arrange(padj) %>%  rownames()
+up = up[1:100]
+
+```
+
+
+```{r,echo=FALSE,message=FALSE}
+dds <- estimateSizeFactors(dds)
+norm <- counts(dds, normalized = TRUE)
+df = as.data.frame(norm)
+up_df = df[rownames(df) %in% up,]
+down_df = df[rownames(df) %in% down,]
+both = rbind(up_df, down_df)
+log2 = res %>% dplyr::select(log2FoldChange)
+log2$gene = rownames(log2)
+both$gene = rownames(both)
+both = both %>% left_join(log2) %>% arrange(log2FoldChange)
+rownames(both) <- both$gene
+both = both[!(names(both) %in% c('log2FoldChange', 'gene'))]
+both = both[, c(4, 5, 6, 10, 11, 12)]
+col = colorRampPalette(brewer.pal(10, "Blues"))(256)
+heatmap(as.matrix(both), Colv = NA, Rowv = NA, col =  col,)
+```
+
+```{r, echo=FALSE,message=FALSE}
+pdf(file = "~/projects/reis/heatmap.pdf", height =30, width=17)
+heatmap(as.matrix(both), Colv = NA, Rowv = NA, col =  col,)
+dev.off()
+```
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+<!-- ### Female/Male differences in splicing FB -->
+
+<!-- ```{r} -->
+<!-- splice_summaryFB = read.table('MaleFBrmats/summary.txt', header=TRUE) -->
+<!-- lbls <- paste(splice_summaryFB$EventType, splice_summaryFB$SignificantEventsJC, sep="  ") -->
+<!-- pie(splice_summaryFB$SignificantEventsJC, labels = lbls) -->
+<!-- ``` -->
+
+<!-- Alternative 3ss Female FB Male FB -->
+
+<!-- ```{r} -->
+<!-- find_sig <- function(file){ -->
+<!--         diff = read.table(file, header=TRUE) -->
+<!--         genes = diff %>% pull(GeneID) -->
+<!--         diff$geneSymbol =  gconvert( -->
+<!--                 query = genes, -->
+<!--                 organism = "dmelanogaster", -->
+<!--                 numeric_ns = "", -->
+<!--                 mthreshold = Inf, -->
+<!--                 filter_na = FALSE -->
+<!--               ) %>% pull(name) -->
+
+<!--         return(diff %>% filter(FDR <= 1)) -->
+<!-- } -->
+
+<!-- write.csv(find_sig('rmats_output_Br/A3SS.MATS.JC.txt'), 'new_splicing2/A3SS.csv') -->
+<!-- ``` -->
+<!-- Alternative 5ss Female FB Male FB -->
+
+<!-- ```{r} -->
+<!-- write.csv(find_sig('rmats_output_Br/A5SS.MATS.JC.txt'), 'new_splicing2/A5SS.csv') -->
+<!-- ``` -->
+
+<!-- Skipped Exon Female FB Male FB -->
+
+<!-- ```{r} -->
+<!-- write.csv(find_sig('rmats_output_Br/SE.MATS.JC.txt'),'new_splicing2/SE.csv') -->
+<!-- ``` -->
+<!-- Retained Intron FB Male FB -->
+<!-- ```{r} -->
+<!-- write.csv(find_sig('rmats_output_Br/RI.MATS.JC.txt'),'new_splicing2/RI.csv') -->
+<!-- ``` -->
+
+<!-- ```{r} -->
+<!-- write.csv(find_sig('rmats_output_Br/MXE.MATS.JC.txt'), 'new_splicing2/MXE.csv') -->
+<!-- ``` -->
+
+
+
+

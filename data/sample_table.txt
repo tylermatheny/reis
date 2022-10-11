@@ -1,0 +1,14 @@
+sample	condition
+FemaleBr1	FemaleBr
+FemaleBr2	FemaleBr
+FemaleBr3	FemaleBr
+FemaleFB1	FemaleFB
+FemaleFB2	FemaleFB
+FemaleFB3	FemaleFB
+MaleBr1	MaleBr
+MaleBr2	MaleBr
+MaleBr3	MaleBr
+MaleFB1	MaleFB
+MaleFB2	MaleFB
+MaleFB3	MaleFB
+
